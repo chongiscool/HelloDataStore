@@ -16,8 +16,6 @@
 
 package com.wecanteen105.hellodatastore.data
 
-import android.content.Context
-import androidx.core.content.edit
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.IOException
 import androidx.datastore.preferences.core.Preferences
@@ -28,9 +26,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
-
-private const val USER_PREFERENCES_NAME = "user_preferences"
-private const val SORT_ORDER_KEY = "sort_order"
 
 enum class SortOrder {
     NONE,
