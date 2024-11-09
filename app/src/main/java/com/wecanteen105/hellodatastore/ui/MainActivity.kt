@@ -1,10 +1,13 @@
 package com.wecanteen105.hellodatastore.ui
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.datastore.preferences.SharedPreferencesMigration
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.DividerItemDecoration
 import com.wecanteen105.hellodatastore.data.SortOrder
@@ -34,7 +37,7 @@ class MainActivity : AppCompatActivity() {
 
         viewModel = ViewModelProvider(
             this,
-            TasksViewModelFactory(TasksRepository, UserPreferencesRepository.getInstance(this))
+            TasksViewModelFactory(TasksRepository, UserPreferencesRepository(dataStore))
         )[TasksViewModel::class.java]
 
         setupRecyclerView()
@@ -79,3 +82,14 @@ class MainActivity : AppCompatActivity() {
             sortOrder == SortOrder.BY_PRIORITY || sortOrder == SortOrder.BY_DEADLINE_AND_PRIORITY
     }
 }
+
+private const val USER_PREFERENCES_NAME = "user_preferences"
+private val Context.dataStore by preferencesDataStore(
+    name = USER_PREFERENCES_NAME,
+    produceMigrations = { context ->
+        // Since we're migrating from SharedPreferences, add a migration based on the
+        // SharedPreferences name
+        listOf(SharedPreferencesMigration(context, USER_PREFERENCES_NAME))
+    }
+)
+
