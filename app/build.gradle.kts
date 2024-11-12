@@ -19,12 +19,29 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            isDebuggable = true
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+    }
+    flavorDimensions += "version"
+    productFlavors {
+        create("demo") {
+            dimension = "version"
+            applicationIdSuffix = ".demo"
+            versionNameSuffix = "-demo"
+        }
+        create("full") {
+            dimension = "version"
+            applicationIdSuffix = ".full"
+            versionNameSuffix = "-full"
         }
     }
     compileOptions {
@@ -44,14 +61,15 @@ protobuf {
     protoc {
         artifact = libs.protobuf.protoc.get().toString()
 //        artifact = "com.google.protobuf:protoc:3.19.4"
+//        artifact = "com.google.protobuf:protoc:3.21.9"
     }
     generateProtoTasks {
         all().forEach { task ->
             task.builtins {
-                create("java") {
+                register("java") {
                     option("lite")
                 }
-                create("kotlin") {
+                register("kotlin") {
                     option("lite")
                 }
             }
@@ -59,13 +77,13 @@ protobuf {
     }
 }
 
-//androidComponents.beforeVariants {
-//    android.sourceSets.register(it.name) {
-//        val buildDir = layout.buildDirectory.get().asFile
-//        java.srcDir(buildDir.resolve("generated/source/proto/${it.name}/java"))
-//        kotlin.srcDir(buildDir.resolve("generated/source/proto/${it.name}/kotlin"))
-//    }
-//}
+androidComponents.beforeVariants {
+    android.sourceSets.register(it.name) {
+        val buildDir = layout.buildDirectory.get().asFile
+        java.srcDir(buildDir.resolve("generated/source/proto/${it.name}/java"))
+        kotlin.srcDir(buildDir.resolve("generated/source/proto/${it.name}/kotlin"))
+    }
+}
 
 dependencies {
 
