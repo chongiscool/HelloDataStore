@@ -16,102 +16,109 @@
 
 package com.wecanteen105.hellodatastore.data
 
-import android.content.Context
-import androidx.core.content.edit
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-
-private const val USER_PREFERENCES_NAME = "user_preferences"
-private const val SORT_ORDER_KEY = "sort_order"
-
-enum class SortOrder {
-    NONE,
-    BY_DEADLINE,
-    BY_PRIORITY,
-    BY_DEADLINE_AND_PRIORITY
-}
+import android.util.Log
+import androidx.datastore.core.DataStore
+import androidx.datastore.core.IOException
+import com.wecanteen105.hellodatastore.UserPrefs
+import com.wecanteen105.hellodatastore.UserPrefs.SortOrder
+import com.wecanteen105.hellodatastore.copy
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 
 /**
  * Class that handles saving and retrieving user preferences
  */
-class UserPreferencesRepository private constructor(context: Context) {
-
-    private val sharedPreferences =
-        context.applicationContext.getSharedPreferences(USER_PREFERENCES_NAME, Context.MODE_PRIVATE)
-
-    // Keep the sort order as a stream of changes
-    private val _sortOrderFlow = MutableStateFlow(sortOrder)
-    val sortOrderFlow: StateFlow<SortOrder> = _sortOrderFlow
+class UserPreferencesRepository(
+    private val userPrefsStore: DataStore<UserPrefs>,
+) {
+    private val TAG:String = "UserPreferencesRepo"
 
     /**
-     * Get the sort order. By default, sort order is None.
+     * for initializing existing preferences
      */
-    private val sortOrder: SortOrder
-        get() {
-            val order = sharedPreferences.getString(SORT_ORDER_KEY, SortOrder.NONE.name)
-            return SortOrder.valueOf(order ?: SortOrder.NONE.name)
-        }
+    suspend fun fetchInitialPreferences() = userPrefsStore.data.first()
 
-    fun enableSortByDeadline(enable: Boolean) {
-        val currentOrder = sortOrderFlow.value
-        val newSortOrder =
-            if (enable) {
-                if (currentOrder == SortOrder.BY_PRIORITY) {
-                    SortOrder.BY_DEADLINE_AND_PRIORITY
-                } else {
-                    SortOrder.BY_DEADLINE
-                }
+    val userPrefsFlow:Flow<UserPrefs> = userPrefsStore.data
+        .catch { exception ->
+            // dataStore.data throws an IOException when an error is encountered when reading data
+            if (exception is IOException) {
+                Log.e(TAG, "Error reading sort order preferneces.", exception)
+                emit(UserPrefs.getDefaultInstance())
             } else {
-                if (currentOrder == SortOrder.BY_DEADLINE_AND_PRIORITY) {
-                    SortOrder.BY_PRIORITY
-                } else {
-                    SortOrder.NONE
-                }
+                throw exception
             }
-        updateSortOrder(newSortOrder)
-        _sortOrderFlow.value = newSortOrder
-    }
+        }
 
-    fun enableSortByPriority(enable: Boolean) {
-        val currentOrder = sortOrderFlow.value
-        val newSortOrder =
-            if (enable) {
-                if (currentOrder == SortOrder.BY_DEADLINE) {
-                    SortOrder.BY_DEADLINE_AND_PRIORITY
-                } else {
-                    SortOrder.BY_PRIORITY
-                }
-            } else {
-                if (currentOrder == SortOrder.BY_DEADLINE_AND_PRIORITY) {
-                    SortOrder.BY_DEADLINE
-                } else {
-                    SortOrder.NONE
-                }
-            }
-        updateSortOrder(newSortOrder)
-        _sortOrderFlow.value = newSortOrder
-    }
-
-    private fun updateSortOrder(sortOrder: SortOrder) {
-        sharedPreferences.edit {
-            putString(SORT_ORDER_KEY, sortOrder.name)
+    suspend fun updateShowCompleted(showCompleted:Boolean){
+        userPrefsStore.updateData { preferences ->
+//            preferences.toBuilder().setShowCompleted(showCompleted).build()
+            preferences.copy {  this.showCompleted = showCompleted  }
         }
     }
 
-    companion object {
-        @Volatile
-        private var INSTANCE: UserPreferencesRepository? = null
-
-        fun getInstance(context: Context): UserPreferencesRepository {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE?.let {
-                    return it
+    suspend fun enableSortByDeadline(enable: Boolean) {
+        // updateData handles data transactionally, ensuring that if the sort is updated at the same
+        // time from another thread, we won't have conflicts
+        userPrefsStore.updateData { preferences ->
+            val currentOrder = preferences.sortOrder
+            val newSortOrder =
+                if (enable) {
+                    if (currentOrder == SortOrder.BY_PRIORITY) {
+                        SortOrder.BY_DEADLINE_AND_PRIORITY
+                    } else {
+                        SortOrder.BY_DEADLINE
+                    }
+                } else {
+                    if (currentOrder == SortOrder.BY_DEADLINE_AND_PRIORITY) {
+                        SortOrder.BY_PRIORITY
+                    } else {
+                        SortOrder.NONE
+                    }
                 }
-
-                val instance = UserPreferencesRepository(context)
-                INSTANCE = instance
-                instance
+            preferences.copy {
+                this.sortOrder = newSortOrder
             }
         }
     }
+
+    suspend fun enableSortByPriority(enable: Boolean) {
+        userPrefsStore.updateData { preferences ->
+            val currentOrder = preferences.sortOrder
+            val newSortOrder =
+                if (enable) {
+                    if (currentOrder == SortOrder.BY_DEADLINE) {
+                        SortOrder.BY_DEADLINE_AND_PRIORITY
+                    } else {
+                        SortOrder.BY_PRIORITY
+                    }
+                } else {
+                    if (currentOrder == SortOrder.BY_DEADLINE_AND_PRIORITY) {
+                        SortOrder.BY_DEADLINE
+                    } else {
+                        SortOrder.NONE
+                    }
+                }
+            preferences.copy {
+                this.sortOrder = newSortOrder
+            }
+        }
+    }
+
+//    companion object {
+//        @Volatile
+//        private var INSTANCE: UserPreferencesRepository? = null
+//
+//        fun getInstance(context: Context): UserPreferencesRepository {
+//            return INSTANCE ?: synchronized(this) {
+//                INSTANCE?.let {
+//                    return it
+//                }
+//
+//                val instance = UserPreferencesRepository(context)
+//                INSTANCE = instance
+//                instance
+//            }
+//        }
+//    }
 }
