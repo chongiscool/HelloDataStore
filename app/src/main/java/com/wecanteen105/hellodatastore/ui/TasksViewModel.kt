@@ -19,6 +19,7 @@ package com.wecanteen105.hellodatastore.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.asLiveData
+import androidx.lifecycle.liveData
 import androidx.lifecycle.viewModelScope
 import com.wecanteen105.hellodatastore.data.SortOrder
 import com.wecanteen105.hellodatastore.data.Task
@@ -38,6 +39,10 @@ class TasksViewModel(
     repository: TasksRepository,
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
+
+    val initialSetupEvent = liveData {
+        emit(userPreferencesRepository.fetchInitialPreferences())
+    }
 
     private val userPreferencesFlow = userPreferencesRepository.userPreferencesFlow
 

@@ -25,6 +25,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 enum class SortOrder {
@@ -41,6 +42,7 @@ data class UserPreferences(
 
 private object PreferencesKeys {
     val SHOW_COMPLETED = booleanPreferencesKey("show_completed")
+
     // Note: this has the same name that we used with SharedPreferences.
     val SORT_ORDER = stringPreferencesKey("sort_order")
 }
@@ -56,7 +58,7 @@ class UserPreferencesRepository(
     val userPreferencesFlow: Flow<UserPreferences> = dataStore.data
         .catch { exception ->
             // dataStore.data throws an IOException when an error is encountered when reading data
-            if (exception is IOException ) {
+            if (exception is IOException) {
                 emit(emptyPreferences())
             } else {
                 throw exception
@@ -69,7 +71,8 @@ class UserPreferencesRepository(
             // Get the sort order from preferences and convert it to a [SortOrder] object
             val sortOrder =
                 SortOrder.valueOf(
-                    preferences[PreferencesKeys.SORT_ORDER] ?: SortOrder.NONE.name)
+                    preferences[PreferencesKeys.SORT_ORDER] ?: SortOrder.NONE.name
+                )
 
             UserPreferences(showCompleted, sortOrder)
         }
@@ -80,9 +83,9 @@ class UserPreferencesRepository(
         }
     }
 
-   suspend fun enableSortByDeadline(enable: Boolean) {
-       // edit handles data transactionally, ensuring that if the sort is updated at the same
-       // time from another thread, we won't have conflicts
+    suspend fun enableSortByDeadline(enable: Boolean) {
+        // edit handles data transactionally, ensuring that if the sort is updated at the same
+        // time from another thread, we won't have conflicts
         dataStore.edit { preferences ->
             // Get the current SortOrder as an enum
             val currentOrder = SortOrder.valueOf(
@@ -107,31 +110,31 @@ class UserPreferencesRepository(
         }
     }
 
-   suspend fun enableSortByPriority(enable: Boolean) {
-       // edit handles data transactionally, ensuring that if the sort is updated at the same
-       // time from another thread, we won't have conflicts
-       dataStore.edit { preferences ->
-           // Get the current SortOrder as an enum
-           val currentOrder = SortOrder.valueOf(
-               preferences[PreferencesKeys.SORT_ORDER] ?: SortOrder.NONE.name
-           )
-           val newSortOrder =
-               if (enable) {
-                   if (currentOrder == SortOrder.BY_DEADLINE) {
-                       SortOrder.BY_DEADLINE_AND_PRIORITY
-                   } else {
-                       SortOrder.BY_PRIORITY
-                   }
-               } else {
-                   if (currentOrder == SortOrder.BY_DEADLINE_AND_PRIORITY) {
-                       SortOrder.BY_DEADLINE
-                   } else {
-                       SortOrder.NONE
-                   }
-               }
+    suspend fun enableSortByPriority(enable: Boolean) {
+        // edit handles data transactionally, ensuring that if the sort is updated at the same
+        // time from another thread, we won't have conflicts
+        dataStore.edit { preferences ->
+            // Get the current SortOrder as an enum
+            val currentOrder = SortOrder.valueOf(
+                preferences[PreferencesKeys.SORT_ORDER] ?: SortOrder.NONE.name
+            )
+            val newSortOrder =
+                if (enable) {
+                    if (currentOrder == SortOrder.BY_DEADLINE) {
+                        SortOrder.BY_DEADLINE_AND_PRIORITY
+                    } else {
+                        SortOrder.BY_PRIORITY
+                    }
+                } else {
+                    if (currentOrder == SortOrder.BY_DEADLINE_AND_PRIORITY) {
+                        SortOrder.BY_DEADLINE
+                    } else {
+                        SortOrder.NONE
+                    }
+                }
 
-           preferences[PreferencesKeys.SORT_ORDER] = newSortOrder.name
-       }
+            preferences[PreferencesKeys.SORT_ORDER] = newSortOrder.name
+        }
     }
 
 //    companion object {
@@ -150,4 +153,18 @@ class UserPreferencesRepository(
 //            }
 //        }
 //    }
+
+    suspend fun fetchInitialPreferences() =
+        mapUserPreferences(dataStore.data.first().toPreferences())
+
+    private fun mapUserPreferences(prefs: Preferences): UserPreferences {
+        // Get the sort order from preferences and convert it to a [SortOrder] object
+        val sortOrder =
+            SortOrder.valueOf(
+                prefs[PreferencesKeys.SORT_ORDER]?: SortOrder.NONE.name
+            )
+        // Get our show completed value, defaulting to false if not set:
+        val showCompleted = prefs[PreferencesKeys.SHOW_COMPLETED] ?:false
+        return UserPreferences(showCompleted, sortOrder)
+    }
 }

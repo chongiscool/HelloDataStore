@@ -2,6 +2,7 @@ package com.wecanteen105.hellodatastore.ui
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -41,20 +42,21 @@ class MainActivity : AppCompatActivity() {
         )[TasksViewModel::class.java]
 
         setupRecyclerView()
-        setupFilterListeners(viewModel)
-        setupSort()
-
-        viewModel.tasksUiModel.observe(this) { tasksUiModel ->
-            adapter.submitList(tasksUiModel.tasks)
-            updateSort(tasksUiModel.sortOrder)
-            binding.showCompletedSwitch.isChecked = tasksUiModel.showCompleted
+        
+//        setupOnCheckedChangeListeners()
+//        observePreferenceChanges()
+        viewModel.initialSetupEvent.observe(this) { initialSetupEvent ->
+            updateTaskFilters(initialSetupEvent.sortOrder, initialSetupEvent.showCompleted)
+            setupOnCheckedChangeListeners()
+            observePreferenceChanges()
         }
 
     }
 
-    private fun setupFilterListeners(viewModel: TasksViewModel) {
-        binding.showCompletedSwitch.setOnCheckedChangeListener { _, checked ->
-            viewModel.showCompletedTasks(checked)
+    private fun observePreferenceChanges() {
+        viewModel.tasksUiModel.observe(this) { tasksUiModel ->
+            adapter.submitList(tasksUiModel.tasks)
+            updateTaskFilters(tasksUiModel.sortOrder, tasksUiModel.showCompleted)
         }
     }
 
@@ -66,23 +68,37 @@ class MainActivity : AppCompatActivity() {
         binding.list.adapter = adapter
     }
 
-    private fun setupSort() {
+    private fun setupOnCheckedChangeListeners() {
+        binding.showCompletedSwitch.setOnCheckedChangeListener { _, checked ->
+            Log.d(TAG, "showCompletedSwitch: $checked ")
+            viewModel.showCompletedTasks(checked)
+        }
+        setupSortChangeListeners()
+    }
+    
+    private fun setupSortChangeListeners() {
         binding.sortDeadline.setOnCheckedChangeListener { _, checked ->
+            Log.d(TAG, "sortDeadline: $checked ")
             viewModel.enableSortByDeadline(checked)
         }
         binding.sortPriority.setOnCheckedChangeListener { _, checked ->
+            Log.d(TAG, "sortPriority: $checked ")
             viewModel.enableSortByPriority(checked)
         }
     }
 
-    private fun updateSort(sortOrder: SortOrder) {
-        binding.sortDeadline.isChecked =
-            sortOrder == SortOrder.BY_DEADLINE || sortOrder == SortOrder.BY_DEADLINE_AND_PRIORITY
-        binding.sortPriority.isChecked =
-            sortOrder == SortOrder.BY_PRIORITY || sortOrder == SortOrder.BY_DEADLINE_AND_PRIORITY
+    private fun updateTaskFilters(sortOrder: SortOrder, showCompleted: Boolean) {
+        with(binding) {
+            sortDeadline.isChecked =
+                sortOrder == SortOrder.BY_DEADLINE || sortOrder == SortOrder.BY_DEADLINE_AND_PRIORITY
+            sortPriority.isChecked =
+                sortOrder == SortOrder.BY_PRIORITY || sortOrder == SortOrder.BY_DEADLINE_AND_PRIORITY
+            showCompletedSwitch.isChecked = showCompleted
+        }
     }
 }
 
+private const val TAG = "MainAty"
 private const val USER_PREFERENCES_NAME = "user_preferences"
 private val Context.dataStore by preferencesDataStore(
     name = USER_PREFERENCES_NAME,
